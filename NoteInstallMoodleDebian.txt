@@ -1,0 +1,230 @@
+*******************************************************************************************************************
+lsb_release -a
+--> Debian 10
+uname -r
+--> 4.19.0-16-amd64
+
+Prévoir sshd pour les imports sftp notamment.
+Prévoir FQDN
+Prévoir certificat SSL
+
+*******************************************************************************************************************
+Création de la DB moodle pour MariaDB
+
+$ sudo apt install mariadb-server
+$ sudo systemctl status mariadb
+
+(si user dans sudoers)
+$ sudo mysql
+
+(sinon su root)
+$ mysql
+
+CREATE DATABASE moodle DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'moodle_user'@'localhost' IDENTIFIED BY 'my_password';
+GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,CREATE TEMPORARY TABLES,DROP,INDEX,ALTER ON moodle.* TO 'moodle_user'@'localhost' IDENTIFIED BY 'mypassword';
+FLUSH PRIVILEGES;
+exit
+
+$ service mysql restart
+
+Note : 
+Pour vérifier les utilisateurs:
+select user,host from mysql.user;
+
+
+Editer :
+/etc/mysql/mariadb.conf.d/50-server.cnf 
+
+et commenter : a revoir ?
+#bind-address = 127.0.0.1 
+
+*******************************************************************************************************************
+
+Install PHP
+
+$ apt install php libapache2-mod-php
+
+ainsi que les modules php-* :
+
+mbstring
+json
+curl
+tokenizer
+xml
+xmlrpc
+soap
+zip
+mysql
+gd
+intl
+
+Paramétrage php.ini
+/etc/php/7.3/apache2/php.ini
+
+Attention aux paramètres (upload des vidéos et support des cours et traductions ):
+post_max_size = 200M
+upload_max_filesize = 200M
+max_input_vars = 5000
+$ systemctl restart apache2
+
+******************************************************************************************************************* Installer Ghostscript
+$ apt install ghostscript
+
+******************************************************************************************************************* 
+Install des sources.
+
+Télecharger les sources (3.11) à https://download.moodle.org/
+Télécharger les plugins à https://moodle.org/plugins/?q=quick%20mail
+Télécharger les plugins à https://moodle.org/plugins/?q=moove
+
+Avec SFTP, copier les sources de moodle dans le répertoire du serveur web par exemple :
+$ cd /var/www
+$ mkdir temp_intall
+$ cd /var/www/temp_install
+
+Extraire les sources
+$ tar -xvf moodle-latest-311.tar.gz
+$ mv moodle/ /var/www/
+$ cd ..
+
+NB: le répertoire /var/www/temp_install peut être nettoyé
+
+******************************************************************************************************************* 
+Config APACHE2
+En fonction de la configuration de l'infrastrucuture - n'est pas abordé le HTTPS (à prévoir) 
+
+Paramétrage /etc/hosts [en local, egerie-learning.local, par exemple]
+Paramétrage fichier conf apache : 
+$ vi /etc/apache2/apache2.conf
+
+	<ifModule mod_rewrite.c>
+		RewriteEngine On
+	</ifModule>
+
+Paramétrage minimaliste du VHOST:
+
+	DocumentRoot /var/www/moodle
+	AcceptPathInfo On
+	ErrorDocument 403 /error/index.php?code=404
+	
+
+*******************************************************************************************************************
+Prpépa install moodle
+cd /var/www
+$ mkdir moodledata
+$ chown www-data moodle/
+$ chown www-data moodledata/
+
+NB Pour simplifier
+On peut 'ouvrir' les permissions en 777 sur les 2 répertoires le temps de l'installation; 
+Voir fin de la procédure pour 'fermer' les permissions
+
+Dans le navigateur se rendre à :
+[egerie-learning.local]/install.php
+
+Choisir le moteur de DB -> Mysql
+Entrer le [user & password] de la DB moodle (créé lors de la création de la DB ) -> moodle_user & my_password
+
+L'installateur va ensuite vérifier les prérequis. 
+Par défaut, il créé un fichier config.php avec comme valeur par défaut pour "$CFG->dbtype = 'mysqli'"
+
+Suite à son premier passage en échec, il faudra modifier le fichier /var/www/moodle/config.php avec "$CFG->dbtype = 'mariadb'"
+
+Ensuite rafraichier la page et valider l'install avec tous les prérequis valides (non bloquants).
+
+*******************************************************************************************************************
+Paramétrage de l'administrateur de la plateforme
+
+Il faut ensuite paramétrer l'administrateur de la plateforme (login à communniquer à Christophe ainsi qu'à Jessica)
+-> définir le nom d'utilisateur (admin ok), nom, prénom et mot de passe, adresse mail;
+-> sélectionner "cacher mon adresse de courriel aux utilisateurs non autorisés";
+
+Les autres sections peuvent être ignorées.
+Cliquer sur "Enregistrer le profil".
+
+*******************************************************************************************************************
+Paramétrage de la page d'accueil
+
+Renseigner le nom du site [en local, egerie-learning.local, par exemple]
+Renseigner le nom abrégé [egerie-moodle](c'est le nom qui est affiché dans l'onglet du navigateur à coté du favicon, importance comestique)
+Réglage lieu : Europe/Paris
+
+Enregistrer les modifications.
+
+***************************************************************************************************************
+CRON JOB
+crontab -u www-data -e
+* * * * * /usr/bin/php /var/www/moodle/admin/cli/cron.php >/dev/null
+
+
+pour verifier la bonne éxécution du cron :
+$ systemctl status cron
+$ tail -f /var/log/syslog | grep CRON
+
+
+***************************************************************************************************************
+Installation du thème 
+(L'archive de thème ainsi que le favicon et le logo EGERIE seront en PJ à la procédure)
+Il faut les rappatrier dans un répertoire accessible, par exemple le home/ ou autre
+
+Temporairement donner les droit 777 sur le répertoire /var/www/moodle
+$ chmod 777 -R /var/www/moodle
+
+- Se logguer en tant qu'admin sur moodle
+- Se rendre dans la section 'Administration du site' (à gauche) puis ensuite choisir le sous menu 'Plugins' (au milieu de l'écran)
+- Cliquer sur 'Installer des Plugins'
+- Cliquer sur ''Choisir un fichier'
+Cliquer ensuite sur 'Installer le plugin à partir du fichier ZIP' (le fichier de theme fournit en pj à la procédure)
+- A l'écran de vérification du Plugins, il faut cliquer sur 'Mettre à jour la DB maintenant'
+- Cliquer sur 'Continuer'
+
+Ensuite renseigner le fichier de logo et favicon
+
+Cliquer sur 'Enregistrer les modifications'
+
+Ne pas tenir compte des messages lié au tâches cron non exécutée.
+
+Se rendre sur  Administration du site -> Serveur -> Chemins système 
+Vérifier la présence de :
+- 'Chemin d'accès à PHP CLI' avec '/usr/bin/php'
+- 'Chemin d'accès à du' avec /usr/bin/du
+- 'Chemin d'accès à ghostscript avec '/usr/bin/gs'
+
+***************************************************************************************************************
+Installation du plugin 'Quick Mail'
+Se rendre sur Administration du site -> Plugins -> Installer des plugins 
+
+- Cliquer sur 'Choisir un fichier'
+- Cliquer ensuite sur 'Installer le plugin à partir du fichier ZIP' (le plugin est fournit en pj à la procédure)
+- Cliquer sur 'Continuer'
+
+Moodle vérifie le plugin, dans 'Plugins requérant votre attention'
+- Si mise à jour du theme disponible, on peut la déclencher, l'écran revient ici ensuite
+
+- Si tout est conveable, il faut cliquer sur 'Mettre à jour la DB maintenant'
+- Cliquer sur 'Continuer'
+
+Laisser les réglages par défaut pour la configuration de quick mail ( configuration à l'étude )
+
+- Cliquer sur 'Continuer'
+
+*************************************************************************************************************** Activationdu thème
+Se rendre sur Administration du site -> Présentation -> Thèmes -> Sélecteur de thème 
+
+- Dans le thème par défault (Boost), cliquer sur changer de thème
+- Sélectionner le thème 'Moove' en cliquant sur 'Utiliser le thème'
+
+Après quelques instant le thème est actif
+
+
+***************************************************************************************************************
+Sécurisation des répertoire de moodle (https://docs.moodle.org/311/en/Security_recommendations)
+
+$ su root
+$ cd /var/www
+$ chmod 755 -R moodle/
+$ chmod 700 -R moodledata/
+
+$ find moodle/ -type f -exec chmod 644 {} \;
+$ find moodledata/ -type f -exec chmod 600 {} \;

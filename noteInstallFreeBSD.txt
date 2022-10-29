@@ -1,0 +1,68 @@
+--------------------------------------------------------------------------------------------------------
+Config reseau :
+
+https://www.serverlab.ca/tutorials/unix/how-to-set-static-ip-and-dhcp-in-freebsd/
+
+--------------------------------------------------------------------------------------------------------
+Install Apache :
+https://www.linuxhelp.com/configure-apache-virtual-host-freebsd
+
+soit :
+
+pkg update
+pkg install apache24
+
+vi /etc/rc.conf
+Dans le fichier de conf ajouter :
+apache24_enable=" YES" 
+
+service apache24 start
+
+--------------------------------------------------------------------------------------------------------
+To configure Apache virtual host
+
+cd /usr/local/www/
+(Import des sources ici)
+
+vi /usr/local/etc/apache24/httpd.conf
+pour localiser les fichiers de conf
+
+créer le fichier de conf :
+mkdir /etc/apache24/extra/
+vi /etc/apache24/extra/httpd-vhosts.conf
+
+Rajouter les réglages du vhost :
+
+< VirtualHost *:80 /> 
+ServerAdmin webmaster@linuxhelp.com
+DocumentRoot " /usr/local/www/[Exemple]/" 
+ServerName vhost1.linuxhelp.com
+< /VirtualHost/> 
+
+
+vi /etc/hosts
+192.168.1.24 egerie-learning.eu
+
+--------------------------------------------------------------------------------------------------------
+Config du ssh :
+editer /etc/rc.conf file:
+
+vi /etc/rc.conf
+
+Rajouter:
+
+sshd_enable="YES"
+
+L'accès root est désactivé par défaut:
+Pour l'activer (non recommandé):
+
+Editer /etc/ssh/sshd_config file:
+
+vi /etc/ssh/sshd_config
+
+Ajouter:
+
+PermitRootLogin yes
+
+Pour redémarrer le serveur ssh :
+/etc/rc.d/sshd restart
